@@ -21,7 +21,10 @@ from sklearn.preprocessing import StandardScaler
 # CONFIGURATION
 # ==================================================
 
-API_URL = "http://localhost:5001/api/consumption"
+API_URL = os.environ.get(
+    "SMARTENERGY_API_URL",
+    "http://localhost:5001/api/consumption",
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")

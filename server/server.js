@@ -558,8 +558,9 @@ app.get("/api/prediction", requireAuth, async (req, res) => {
         cwd: PROJECT_ROOT,
         timeout: 30000,
         maxBuffer: 1024 * 1024,
-        env: {
+                env: {
           ...process.env,
+          SMARTENERGY_API_URL: `${process.env.API_BASE_URL || "http://localhost:5001"}/api/consumption`,
           SMARTENERGY_AUTH_TOKEN: req.headers.authorization || "",
         },
       }
