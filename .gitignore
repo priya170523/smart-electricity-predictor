@@ -1,0 +1,46 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Python virtual environments
+venv/
+.venv/
+**/venv/
+**/.venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Build output
+client/dist/
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Operating system and editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Backups
+*.backup
+*.before-auth
+
+# Additional backup files
+*.save
+*.auth-backup
+*.before-*
+*.backup.jsx
+*.jsx.

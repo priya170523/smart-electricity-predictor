@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+node_modules/
+*.log
+server.backup.js
+server.js.backup
+server.js.before-*
+server.js.pre-*
+server.js.error-backup
+server.inmemory-backup.js
+server.js.save
