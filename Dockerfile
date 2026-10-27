@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim
+FROM node:22-trixie-slim
 
 # Install Python for the machine-learning model
 RUN apt-get update \
