@@ -556,7 +556,7 @@ app.get("/api/prediction", requireAuth, async (req, res) => {
       ["-u", ML_SCRIPT_PATH],
       {
         cwd: PROJECT_ROOT,
-        timeout: 30000,
+        timeout: 120000,
         maxBuffer: 1024 * 1024,
                 env: {
           ...process.env,
