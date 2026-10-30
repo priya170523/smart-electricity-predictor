@@ -10,3 +10,5 @@ client/dist
 **/*.backup
 **/*.before-auth
 .DS_Store
+# Exclude experimental Kaggle dataset and generated artifacts
+ml/datasets/

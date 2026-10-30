@@ -1,0 +1,59 @@
+{
+    "metrics": {
+        "mae_kwh": 0.32648290875586067,
+        "rmse_kwh": 0.4739746290374037,
+        "r2": 0.5935357522783933
+    },
+    "forecast": {
+        "predictedConsumptionKwh": 1129.67,
+        "electricityRateInrPerKwh": 5.0,
+        "estimatedBillInr": 5648.34,
+        "forecastHours": 744,
+        "forecastStart": "2010-12-01T00:00:00",
+        "forecastEnd": "2010-12-31T23:00:00"
+    },
+    "dataset_note": "This dataset represents one household in France. Results may not generalize to other households. The electricity rate is illustrative.",
+    "model_name": "HistGradientBoosting_Tuned",
+    "training_examples": 33983,
+    "model_comparison": {
+        "Persistence Baseline": {
+            "mae_kwh": 0.3966885401985132,
+            "rmse_kwh": 0.6028804596206359,
+            "r2": 0.3423806606933595
+        },
+        "Training Mean Baseline": {
+            "mae_kwh": 0.633955693851591,
+            "rmse_kwh": 0.7491199268595897,
+            "r2": -0.015347865023443541
+        },
+        "Random Forest": {
+            "mae_kwh": 0.3320151609157287,
+            "rmse_kwh": 0.4836605131421987,
+            "r2": 0.5767534513648467
+        },
+        "HistGradientBoosting_Tuned": {
+            "mae_kwh": 0.32648290875586067,
+            "rmse_kwh": 0.4739746290374037,
+            "r2": 0.5935357522783933
+        }
+    },
+    "mae_improvement_over_persistence_percent": 17.69792276013817,
+    "features": [
+        "hour",
+        "dayofweek",
+        "dayofyear",
+        "month",
+        "is_weekend",
+        "lag_1",
+        "lag_2",
+        "lag_3",
+        "lag_24",
+        "lag_48",
+        "lag_168",
+        "mean_24",
+        "mean_168"
+    ],
+    "electricity_rate_inr_per_kwh": 5.0,
+    "model_path": "/Users/priya/smart-electricity-predictor/ml/models/electricity_kaggle_model.pkl",
+    "evaluation_method": "Chronological 80/20 train/test split"
+}

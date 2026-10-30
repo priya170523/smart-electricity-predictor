@@ -9,6 +9,7 @@ const API_BASE_URL = (
 
 const API_URL = `${API_BASE_URL}/api/consumption`;
 const PREDICTION_API_URL = `${API_BASE_URL}/api/prediction`;
+
 const ELECTRICITY_RATE = 5;
 const INITIAL_HISTORY_COUNT = 5;
 
@@ -84,7 +85,12 @@ const getMonthKey = (record) => {
 const getApiMessage = async (response) => {
   try {
     const result = await response.json();
-    return result.message || result.error || `Request failed (${response.status})`;
+
+    return (
+      result.message ||
+      result.error ||
+      `Request failed (${response.status})`
+    );
   } catch {
     return `Request failed (${response.status})`;
   }
@@ -153,29 +159,28 @@ function App({ user, onLogout }) {
 
       if (!data) {
         console.error("Unexpected consumption API response:", result);
+
         throw new Error(
           "The API response does not contain a consumption records array."
         );
       }
 
-      console.log("Consumption API response:", result);
-      console.log("Records received from server:", data.length);
-
-      // Replace the dashboard records only after a successful response.
-      // Legacy records without a user field are retained.
       setRecords(data);
       setApiError("");
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Consumption fetch failed:", error);
-      setApiError(error.message || "Unable to load consumption records.");
+
+      setApiError(
+        error.message || "Unable to load consumption records."
+      );
     } finally {
       setRecordsLoading(false);
     }
   }, []);
 
   // ============================================
-  // FETCH MACHINE-LEARNING PREDICTION
+  // FETCH PERSONALIZED ML PREDICTION
   // ============================================
 
   const fetchPrediction = useCallback(async () => {
@@ -218,6 +223,7 @@ function App({ user, onLogout }) {
       setPredictionError("");
     } catch (error) {
       console.error("Prediction fetch failed:", error);
+
       setPredictionError(
         error.message || "Unable to load the prediction."
       );
@@ -240,7 +246,7 @@ function App({ user, onLogout }) {
   }, [fetchRecords, fetchPrediction]);
 
   // ============================================
-  // NORMALIZE AND SORT RECORDS
+  // NORMALIZE AND SORT CONSUMPTION RECORDS
   // ============================================
 
   const monthlyRecords = useMemo(() => {
@@ -259,8 +265,7 @@ function App({ user, onLogout }) {
           ...record,
           monthKey,
           consumption: Number(rawConsumption),
-          _displayKey:
-            record._id || `${monthKey}-${index}`,
+          _displayKey: record._id || `${monthKey}-${index}`,
         };
       })
       .filter(
@@ -271,6 +276,10 @@ function App({ user, onLogout }) {
       )
       .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
   }, [records]);
+
+  // ============================================
+  // CONSUMPTION STATISTICS
+  // ============================================
 
   const latestRecord = monthlyRecords.length
     ? monthlyRecords[monthlyRecords.length - 1]
@@ -323,7 +332,7 @@ function App({ user, onLogout }) {
       : null;
 
   // ============================================
-  // PREDICTION VALUES
+  // PERSONALIZED PREDICTION VALUES
   // ============================================
 
   const predictionMonth = mlPrediction?.month || "Not available";
@@ -348,32 +357,9 @@ function App({ user, onLogout }) {
   // ============================================
 
   const recommendations = useMemo(() => {
-    if (!latestRecord) {
-      return [
-        {
-          icon: "📊",
-          title: "Record your consumption",
-          description:
-            "Add monthly meter readings to receive recommendations based on your household usage.",
-        },
-        {
-          icon: "💡",
-          title: "Switch off unused lights",
-          description:
-            "Turn off lights and electrical devices when they are not needed.",
-        },
-        {
-          icon: "🌡️",
-          title: "Use air conditioning efficiently",
-          description:
-            "Choose a moderate temperature and keep doors and windows closed while cooling.",
-        },
-      ];
-    }
-
     const tips = [];
 
-    if (Number(latestRecord.airConditioners || 0) > 0) {
+    if (Number(latestRecord?.airConditioners || 0) > 0) {
       tips.push({
         icon: "❄️",
         title: "Optimize air conditioning",
@@ -382,7 +368,7 @@ function App({ user, onLogout }) {
       });
     }
 
-    if (Number(latestRecord.fans || 0) > 0) {
+    if (Number(latestRecord?.fans || 0) > 0) {
       tips.push({
         icon: "🌀",
         title: "Use fans efficiently",
@@ -391,7 +377,7 @@ function App({ user, onLogout }) {
       });
     }
 
-    if (Number(latestRecord.refrigerators || 0) > 0) {
+    if (Number(latestRecord?.refrigerators || 0) > 0) {
       tips.push({
         icon: "🧊",
         title: "Improve refrigerator efficiency",
@@ -507,6 +493,8 @@ function App({ user, onLogout }) {
       </aside>
 
       <main className="main-content" id="dashboard">
+        {/* HEADER */}
+
         <header className="top-header">
           <div>
             <h1>Smart Electricity Dashboard</h1>
@@ -529,6 +517,8 @@ function App({ user, onLogout }) {
           </div>
         </header>
 
+        {/* WELCOME BANNER */}
+
         <section className="welcome-banner">
           <div>
             <h2>
@@ -544,9 +534,12 @@ function App({ user, onLogout }) {
           <div className="welcome-illustration">🏡</div>
         </section>
 
+        {/* API ERROR */}
+
         {apiError && (
           <div className="error-message">
             <strong>Consumption API issue:</strong> {apiError}
+
             <button type="button" onClick={fetchRecords}>
               Retry
             </button>
@@ -558,6 +551,8 @@ function App({ user, onLogout }) {
             Loading your electricity consumption records...
           </p>
         )}
+
+        {/* DASHBOARD STATISTICS */}
 
         <section className="stats-grid">
           <article className="stat-card">
@@ -631,9 +626,7 @@ function App({ user, onLogout }) {
           </article>
         </section>
 
-        {/* ======================================
-            CONSUMPTION CHART
-        ====================================== */}
+        {/* MONTHLY CONSUMPTION CHART */}
 
         <section className="content-grid">
           <article className="chart-card" id="consumption">
@@ -643,6 +636,7 @@ function App({ user, onLogout }) {
             {recentRecords.length === 0 ? (
               <div className="empty-state">
                 <div>📊</div>
+
                 <h3>
                   {recordsLoading
                     ? "Loading consumption records..."
@@ -711,9 +705,7 @@ function App({ user, onLogout }) {
             )}
           </article>
 
-          {/* ======================================
-              AI PREDICTION
-          ====================================== */}
+          {/* AI PREDICTION */}
 
           <article className="forecast-card" id="prediction">
             <h2>AI Consumption Forecast</h2>
@@ -724,6 +716,7 @@ function App({ user, onLogout }) {
             ) : predictionError ? (
               <div className="error-message">
                 {predictionError}
+
                 <button type="button" onClick={fetchPrediction}>
                   Retry
                 </button>
@@ -765,7 +758,7 @@ function App({ user, onLogout }) {
 
                 <p className="forecast-note">
                   ⚠️ Experimental forecast. Accuracy may be limited by the
-                  amount of historical data available.
+                  amount and quality of historical data available.
                 </p>
               </>
             )}
@@ -783,9 +776,7 @@ function App({ user, onLogout }) {
           </article>
         </section>
 
-        {/* ======================================
-            ACTUAL VS PREDICTED CHART
-        ====================================== */}
+        {/* ACTUAL VS PREDICTED CHART */}
 
         <section className="comparison-section">
           <ActualVsPredictedChart
@@ -794,9 +785,7 @@ function App({ user, onLogout }) {
           />
         </section>
 
-        {/* ======================================
-            MONTHLY CONSUMPTION HISTORY
-        ====================================== */}
+        {/* MONTHLY CONSUMPTION HISTORY */}
 
         <section className="history-card" id="history">
           <div className="section-heading">
@@ -889,9 +878,7 @@ function App({ user, onLogout }) {
           )}
         </section>
 
-        {/* ======================================
-            ADD ELECTRICITY READING
-        ====================================== */}
+        {/* ADD ELECTRICITY READING */}
 
         <section className="form-card" id="add-reading">
           <h2>Add Electricity Reading</h2>
@@ -903,9 +890,7 @@ function App({ user, onLogout }) {
           <ConsumptionForm />
         </section>
 
-        {/* ======================================
-            ENERGY-SAVING RECOMMENDATIONS
-        ====================================== */}
+        {/* ENERGY-SAVING RECOMMENDATIONS */}
 
         <section className="recommendations-section" id="energy-saving">
           <div className="section-heading">
@@ -936,9 +921,7 @@ function App({ user, onLogout }) {
           </div>
         </section>
 
-        {/* ======================================
-            FOOTER
-        ====================================== */}
+        {/* FOOTER */}
 
         <footer className="footer">
           <p>

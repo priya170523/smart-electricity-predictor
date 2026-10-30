@@ -167,12 +167,19 @@ function ConsumptionForm() {
     setLoading(true);
 
     try {
+      const token = localStorage.getItem("smartEnergyToken");
+
+      if (!token) {
+        throw new Error("Login token not found. Please log in again.");
+      }
+
       const response = await fetch(
         `${API_BASE_URL}/api/consumption`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
         }

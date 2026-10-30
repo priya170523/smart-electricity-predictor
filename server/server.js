@@ -3,6 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const path = require("path");
+const fs = require("fs/promises");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
 const bcrypt = require("bcryptjs");
@@ -32,6 +33,18 @@ const ML_SCRIPT_PATH = path.join(
   PROJECT_ROOT,
   "ml",
   "train_model.py"
+);
+
+const KAGGLE_INFO_SCRIPT = path.join(
+  PROJECT_ROOT,
+  "ml",
+  "kaggle_model_info.py"
+);
+
+const KAGGLE_FORECAST_SCRIPT = path.join(
+  PROJECT_ROOT,
+  "ml",
+  "kaggle_forecast.py"
 );
 
 const ELECTRICITY_RATE = 5;
@@ -72,6 +85,7 @@ app.get("/", (req, res) => {
 
 // ============================================
 // HEALTH CHECK
+// GET /api/health
 // ============================================
 
 app.get("/api/health", (req, res) => {
@@ -272,6 +286,7 @@ app.post("/api/login", async (req, res) => {
 
 // ============================================
 // GET ALL CONSUMPTION RECORDS
+// GET /api/consumption
 // ============================================
 
 app.get("/api/consumption", requireAuth, async (req, res) => {
@@ -284,7 +299,9 @@ app.get("/api/consumption", requireAuth, async (req, res) => {
     }
 
     const records = await Consumption.collection
-      .find({})
+      .find({
+        user: new mongoose.Types.ObjectId(req.userId),
+      })
       .sort({ month: -1 })
       .toArray();
 
@@ -497,6 +514,7 @@ app.post("/api/consumption", requireAuth, async (req, res) => {
 
 // ============================================
 // DELETE A CONSUMPTION RECORD
+// DELETE /api/consumption/:id
 // ============================================
 
 app.delete("/api/consumption/:id", requireAuth, async (req, res) => {
@@ -510,10 +528,11 @@ app.delete("/api/consumption/:id", requireAuth, async (req, res) => {
       });
     }
 
-    const deletedRecord = await Consumption.collection.findOneAndDelete({
-      _id: new mongoose.Types.ObjectId(id),
-      user: new mongoose.Types.ObjectId(req.userId),
-    });
+    const deletedRecord =
+      await Consumption.collection.findOneAndDelete({
+        _id: new mongoose.Types.ObjectId(id),
+        user: new mongoose.Types.ObjectId(req.userId),
+      });
 
     if (!deletedRecord) {
       return res.status(404).json({
@@ -538,7 +557,156 @@ app.delete("/api/consumption/:id", requireAuth, async (req, res) => {
 });
 
 // ============================================
-// AI CONSUMPTION PREDICTION
+// KAGGLE 24-HOUR FORECAST
+// GET /api/kaggle-forecast
+// ============================================
+
+app.get("/api/kaggle-forecast", requireAuth, async (req, res) => {
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      PYTHON_PATH,
+      ["-u", KAGGLE_FORECAST_SCRIPT],
+      {
+        cwd: PROJECT_ROOT,
+        timeout: 60000,
+        maxBuffer: 1024 * 1024,
+      }
+    );
+
+    if (stderr && stderr.trim()) {
+      console.warn("Kaggle forecast warnings:", stderr.trim());
+    }
+
+    let forecast;
+
+    try {
+      forecast = JSON.parse(stdout.trim());
+    } catch (parseError) {
+      console.error("Could not parse Kaggle forecast output:", parseError);
+
+      return res.status(500).json({
+        success: false,
+        message: "The Kaggle forecast script returned invalid JSON.",
+      });
+    }
+
+    if (!forecast.success) {
+      return res.status(500).json({
+        success: false,
+        message:
+          forecast.message || "Could not generate the Kaggle forecast.",
+      });
+    }
+
+    return res.status(200).json(forecast);
+  } catch (error) {
+    console.error(
+      "Kaggle forecast API error:",
+      error.stderr
+        ? error.stderr.toString().slice(0, 1000)
+        : error.message
+    );
+
+    if (error.code === "ETIMEDOUT") {
+      return res.status(504).json({
+        success: false,
+        message: "Generating the Kaggle forecast timed out.",
+      });
+    }
+
+    if (error.code === "ENOENT") {
+      return res.status(500).json({
+        success: false,
+        message: "Python or the Kaggle forecast script could not be found.",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to run the Kaggle forecast model.",
+      details: error.stderr
+        ? error.stderr.toString().slice(0, 1000)
+        : error.message,
+    });
+  }
+});
+
+// ============================================
+// KAGGLE MODEL INFORMATION API
+// GET /api/kaggle-model-info
+// ============================================
+
+app.get("/api/kaggle-model-info", requireAuth, async (req, res) => {
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      PYTHON_PATH,
+      ["-u", KAGGLE_INFO_SCRIPT],
+      {
+        cwd: PROJECT_ROOT,
+        timeout: 30000,
+        maxBuffer: 1024 * 1024,
+      }
+    );
+
+    if (stderr && stderr.trim()) {
+      console.log("Kaggle model information:", stderr.trim());
+    }
+
+    let result;
+
+    try {
+      result = JSON.parse(stdout.trim());
+    } catch (parseError) {
+      console.error(
+        "Could not parse Kaggle model information:",
+        parseError
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "The Kaggle model information script returned invalid JSON.",
+      });
+    }
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Unable to load Kaggle model information.",
+      });
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Kaggle model API error:", error);
+
+    if (error.code === "ETIMEDOUT") {
+      return res.status(504).json({
+        success: false,
+        message: "Loading Kaggle model information timed out.",
+      });
+    }
+
+    if (error.code === "ENOENT") {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Python or the Kaggle model information script could not be found.",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load Kaggle model information.",
+      details: error.stderr
+        ? error.stderr.toString().slice(0, 1000)
+        : error.message,
+    });
+  }
+});
+
+// ============================================
+// EXISTING PERSONALIZED ELECTRICITY PREDICTION
 // GET /api/prediction
 // ============================================
 
@@ -551,119 +719,53 @@ app.get("/api/prediction", requireAuth, async (req, res) => {
       });
     }
 
-    const { stdout, stderr } = await execFileAsync(
-      PYTHON_PATH,
-      ["-u", ML_SCRIPT_PATH],
-      {
-        cwd: PROJECT_ROOT,
-        timeout: 120000,
-        maxBuffer: 1024 * 1024,
-                env: {
-          ...process.env,
-          SMARTENERGY_API_URL: `${process.env.API_BASE_URL || "http://localhost:5001"}/api/consumption`,
-          SMARTENERGY_AUTH_TOKEN: req.headers.authorization || "",
-        },
-      }
-    );
+    const records = await Consumption.collection
+      .find({
+        user: new mongoose.Types.ObjectId(req.userId),
+      })
+      .sort({ month: 1 })
+      .toArray();
 
-    if (stderr && stderr.trim()) {
-      console.log("ML script messages:", stderr.trim());
-    }
-
-    console.log("ML script output:\n", stdout);
-
-    const modelMatch = stdout.match(/^\s*Model:\s*(.+?)\s*$/m);
-    const monthMatch = stdout.match(/^\s*Month:\s*(.+?)\s*$/m);
-
-    const consumptionMatch = stdout.match(
-      /^\s*Predicted consumption:\s*([\d,]+(?:\.\d+)?)\s*kWh\s*$/m
-    );
-
-    const billMatch = stdout.match(
-      /^\s*Estimated bill:\s*₹\s*([\d,]+(?:\.\d+)?)\s*$/m
-    );
-
-    const rateMatch = stdout.match(
-      /^\s*Assumed rate:\s*₹\s*([\d,]+(?:\.\d+)?)/m
-    );
-
-    if (!modelMatch || !monthMatch || !consumptionMatch || !billMatch) {
-      console.error("Unable to parse the prediction output from Python.");
-
-      return res.status(500).json({
+    if (records.length === 0) {
+      return res.status(404).json({
         success: false,
-        message:
-          "The ML script ran, but its prediction output could not be parsed.",
-        details:
-          "Check the Model, Month, Predicted consumption, and Estimated bill output lines in ml/train_model.py.",
+        message: "Add consumption records to generate a prediction.",
       });
     }
 
-    const model = modelMatch[1].trim();
-    const month = monthMatch[1].trim();
+    const latestRecord = records[records.length - 1];
+    const recentRecords = records.slice(-6);
 
-    const predictedConsumption = Number(
-      consumptionMatch[1].replace(/,/g, "")
-    );
+    const averageUnits =
+      recentRecords.reduce(
+        (sum, record) => sum + Number(record.units || 0),
+        0
+      ) / recentRecords.length;
 
+    const predictedConsumption = Number(averageUnits.toFixed(2));
     const estimatedBill = Number(
-      billMatch[1].replace(/,/g, "")
+      (predictedConsumption * ELECTRICITY_RATE).toFixed(2)
     );
-
-    const electricityRate = rateMatch
-      ? Number(rateMatch[1].replace(/,/g, ""))
-      : ELECTRICITY_RATE;
-
-    if (
-      ![
-        predictedConsumption,
-        estimatedBill,
-        electricityRate,
-      ].every(Number.isFinite)
-    ) {
-      return res.status(500).json({
-        success: false,
-        message: "The ML script returned invalid numeric values",
-      });
-    }
 
     return res.status(200).json({
       success: true,
-      model,
-      month,
-      predictedConsumption: Number(
-        Math.max(0, predictedConsumption).toFixed(2)
-      ),
-      estimatedBill: Number(Math.max(0, estimatedBill).toFixed(2)),
-      electricityRate,
+      model: "Recent Consumption Average",
+      predictedConsumption,
+      estimatedBill,
+      electricityRate: ELECTRICITY_RATE,
       unit: "kWh",
       currency: "INR",
-      note: "Experimental forecast based on limited historical data.",
+      basedOnRecords: recentRecords.length,
+      latestMonth: latestRecord.month,
+      note:
+        "This is a simple estimate based on your recent recorded consumption, not a trained personalized ML forecast.",
     });
   } catch (error) {
-    console.error("Prediction API error:", error);
-
-    if (error.code === "ETIMEDOUT") {
-      return res.status(504).json({
-        success: false,
-        message: "ML prediction timed out. Please try again.",
-      });
-    }
-
-    if (error.code === "ENOENT") {
-      return res.status(500).json({
-        success: false,
-        message:
-          "Python or the ML script could not be found. Check the project paths.",
-      });
-    }
+    console.error("Personalized prediction error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to generate electricity consumption prediction",
-      details: error.stderr
-        ? error.stderr.toString().slice(0, 1000)
-        : error.message,
+      message: "Could not generate the personalized prediction.",
     });
   }
 });

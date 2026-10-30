@@ -44,3 +44,5 @@ npm-debug.log*
 *.before-*
 *.backup.jsx
 *.jsx.
+# Kaggle electricity dataset and experimental model artifacts
+ml/datasets/
